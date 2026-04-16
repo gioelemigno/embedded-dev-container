@@ -1,0 +1,30 @@
+services:
+  vscode-platformio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USER_UID: ${UID:-1000}
+        USER_GID: ${GID:-1000}
+    container_name: vscode-platformio
+    restart: unless-stopped
+    privileged: true                  # Required for udev and hot-plug /dev access
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /run/udev:/run/udev:ro        # Share host udev events for hot-plug
+      - ./workspace:/home/coder/workspace
+      - vscode-config:/home/coder/.config/Code
+      - arduino-config:/home/coder/.arduino15
+      - arduino-libraries:/home/coder/Arduino
+      - platformio-data:/home/coder/.platformio
+      - vscode-extensions:/home/coder/.vscode
+    network_mode: host
+
+volumes:
+  vscode-config:
+  platformio-data:
+  vscode-extensions:
+  arduino-config:
+  arduino-libraries:
