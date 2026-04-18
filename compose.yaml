@@ -14,7 +14,7 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /run/udev:/run/udev:ro        # Share host udev events for hot-plug
-      - ./workspace:/home/coder/workspace
+      - ./workdir:/home/coder/workdir
       - vscode-config:/home/coder/.config/Code
       - arduino-config:/home/coder/.arduino15
       - arduino-libraries:/home/coder/Arduino

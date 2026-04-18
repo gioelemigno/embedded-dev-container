@@ -2,12 +2,15 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+USER root
+
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
     git \
     python3 \
     python3-pip \
+    python3-venv \
     sudo \
     locales \
     ca-certificates \
@@ -33,6 +36,7 @@ RUN apt-get update && apt-get install -y \
     libexpat1 \
     fonts-dejavu-core \
     libfuse2 \
+    unzip \
     # udev for hot-plug support
     udev \
     && rm -rf /var/lib/apt/lists/*
@@ -50,32 +54,45 @@ RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor
     apt-get update && apt-get install -y code && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Arduino IDE 2 (AppImage extracted to avoid FUSE requirement)
-RUN curl -fsSL https://downloads.arduino.cc/arduino-ide/arduino-ide_latest_Linux_64bit.AppImage \
-    -o /opt/arduino-ide.AppImage && \
-    chmod +x /opt/arduino-ide.AppImage && \
-    cd /opt && /opt/arduino-ide.AppImage --appimage-extract && \
-    mv /opt/squashfs-root /opt/arduino-ide && \
-    rm /opt/arduino-ide.AppImage && \
-    ln -s /opt/arduino-ide/arduino-ide /usr/local/bin/arduino-ide
+
+ARG ARDUINO_IDE_VERSION=2.3.4
+RUN wget https://downloads.arduino.cc/arduino-ide/arduino-ide_${ARDUINO_IDE_VERSION}_Linux_64bit.zip
+RUN (mkdir /usr/local/share/arduino-${ARDUINO_IDE_VERSION} && \
+     unzip -d /usr/local/share/arduino-${ARDUINO_IDE_VERSION} arduino-ide_${ARDUINO_IDE_VERSION}_Linux_64bit.zip && \
+     ln -s /usr/local/share/arduino-${ARDUINO_IDE_VERSION} /usr/local/share/arduino && \
+     ln -s /usr/local/share/arduino-${ARDUINO_IDE_VERSION}/arduino-ide /usr/local/bin/arduino-ide && \
+     chmod 04755 /usr/local/share/arduino-${ARDUINO_IDE_VERSION}/chrome-sandbox)
 
 # Add udev rules for common Arduino/microcontroller boards
 COPY udev/99-usb-serial.rules /etc/udev/rules.d/99-usb-serial.rules
 
 # Build args for host UID/GID
-ARG USER_UID=1000
-ARG USER_GID=1000
+ARG USER_UID=err
+ARG USER_GID=err
 
 RUN groupadd -g ${USER_GID} coder && \
     useradd -m -s /bin/bash -u ${USER_UID} -g ${USER_GID} -G sudo,dialout,plugdev coder && \
     echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
+RUN mkdir -p /home/coder/.platformio && \
+    chown -R coder:coder /home/coder/.platformio && \
+    mkdir -p /home/coder/.arduino15 && \
+    chown -R coder:coder /home/coder/.arduino15
+
+# RUN chown -R coder:coder /opt/arduino-ide
+
 USER coder
 WORKDIR /home/coder
 
-RUN pip3 install --user platformio
+# RUN pip3 install --user platformio
 ENV PATH="/home/coder/.local/bin:$PATH"
+ENV PATH="/usr/local/bin:${PATH}"
+
+RUN curl -fsSL -o get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py && \
+    python3 get-platformio.py
 
 RUN code --no-sandbox --install-extension platformio.platformio-ide
+
+WORKDIR /home/coder/workdir
 
 CMD ["sleep", "infinity"]
